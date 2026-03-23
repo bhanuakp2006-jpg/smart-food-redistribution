@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Smart Food Redistribution • Zero Hunger Prototype</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+  <style>
+    :root {
+      --primary: #e65100;
+      --primary-dark: #c43e00;
+      --success: #2e7d32;
+      --warning: #f57c00;
+      --gray: #f5f5f5;
+      --dark: #212121;
+      --light: #ffffff;
+      --border: #e0e0e0;
+    }
+
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: var(--gray);
+      color: var(--dark);
+      min-height: 100vh;
+      padding-bottom: 80px;
+    }
+
+    header {
+      background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+      color: white;
+      padding: 1rem;
+      text-align: center;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.15);
+    }
+
+    h1 { font-size: 1.4rem; margin-bottom: 0.3rem; }
+    .subtitle { font-size: 0.9rem; opacity: 0.9; }
+
+    .tabs {
+      display: flex;
+      background: white;
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 70px;
+      z-index: 90;
+    }
+
+    .tab {
+      flex: 1;
+      padding: 1rem;
+      text-align: center;
+      font-weight: 600;
+      color: #757575;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .tab.active {
+      color: var(--primary);
+      border-bottom: 3px solid var(--primary);
+    }
+
+    .tab i { font-size: 1.3rem; display: block; margin-bottom: 0.4rem; }
+
+    .screen {
+      display: none;
+      padding: 1rem;
+    }
+
+    .screen.active { display: block; }
+
+    .card {
+      background: white;
+      border-radius: 12px;
+      margin: 1rem 0;
+      padding: 1.2rem;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.8rem;
+    }
+
+    .badge {
+      padding: 0.35rem 0.8rem;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+
+    .badge-success { background: #e8f5e9; color: var(--success); }
+    .badge-warning { background: #fff3e0; color: var(--warning); }
+
+    .btn {
+      display: inline-block;
+      background: var(--primary);
+      color: white;
+      border: none;
+      padding: 0.9rem 1.4rem;
+      border-radius: 10px;
+      font-weight: 600;
+      cursor: pointer;
+      text-align: center;
+      transition: 0.2s;
+      width: 100%;
+      margin: 0.6rem 0;
+      font-size: 1rem;
+    }
+
+    .btn:hover { background: var(--primary-dark); }
+    .btn-outline {
+      background: transparent;
+      border: 2px solid var(--primary);
+      color: var(--primary);
+    }
+
+    .form-group {
+      margin-bottom: 1.2rem;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 0.4rem;
+      font-weight: 500;
+      font-size: 0.95rem;
+    }
+
+    input, select, textarea {
+      width: 100%;
+      padding: 0.85rem;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 1rem;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      margin: 1.5rem 0;
+    }
+
+    .stat-card {
+      background: white;
+      border-radius: 12px;
+      padding: 1.2rem;
+      text-align: center;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+    }
+
+    .stat-number {
+      font-size: 1.8rem;
+      font-weight: 700;
+      color: var(--primary);
+    }
+
+    .bottom-nav {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: white;
+      border-top: 1px solid var(--border);
+      display: flex;
+      padding: 0.6rem 0;
+      box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+    }
+
+    .nav-item {
+      flex: 1;
+      text-align: center;
+      color: #757575;
+      font-size: 0.75rem;
+      padding: 0.4rem;
+    }
+
+    .nav-item.active { color: var(--primary); }
+
+    .qr-placeholder {
+      width: 140px;
+      height: 140px;
+      background: #eee;
+      margin: 1rem auto;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.9rem;
+      color: #777;
+      border: 2px dashed #ccc;
+    }
+
+    .iot-status {
+      font-size: 0.9rem;
+      margin: 0.6rem 0;
+      padding: 0.5rem;
+      border-radius: 8px;
+    }
+
+    .safe { background: #e8f5e9; color: var(--success); }
+    .warning { background: #fff3e0; color: var(--warning); }
+
+    .message {
+      margin-top: 10px;
+      padding: 10px;
+      border-radius: 8px;
+      display: none;
+    }
+
+    .message.success {
+      display: block;
+      background: #e8f5e9;
+      color: #2e7d32;
+    }
+
+    .message.error {
+      display: block;
+      background: #ffebee;
+      color: #c62828;
+    }
+
+    @media (min-width: 500px) {
+      body { max-width: 420px; margin: 0 auto; border: 1px solid #ddd; box-shadow: 0 0 30px rgba(0,0,0,0.12); }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Food Rescue</h1>
+  <div class="subtitle">Turning Waste into Hope • Hyderabad</div>
+</header>
+
+<div class="tabs">
+  <div class="tab active" data-role="donor"><i class="fas fa-hotel"></i> Donor</div>
+  <div class="tab" data-role="ngo"><i class="fas fa-hands-helping"></i> NGO</div>
+  <div class="tab" data-role="logistics"><i class="fas fa-truck"></i> Delivery</div>
+</div>
+
+<div id="donor" class="screen active">
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <strong>Sample Hotel / Banquet</strong><br>
+        <small>Food Manager</small>
+      </div>
+      <span class="badge badge-success">FSSAI Verified</span>
+    </div>
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-number">248</div>
+        <div>Meals Saved</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number">₹5,820</div>
+        <div>Waste Reduced</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Post New Donation</h3>
+
+    <form id="donationForm">
+      <div class="form-group">
+        <label for="donorName">Donor Name</label>
+        <input type="text" id="donorName" placeholder="Enter donor name" required />
+      </div>
+
+      <div class="form-group">
+        <label for="foodType">Food Type</label>
+        <select id="foodType" required>
+          <option value="">Select food type</option>
+          <option>Veg Meals</option>
+          <option>Non-Veg Biryani</option>
+          <option>Bakery Items</option>
+          <option>Fresh Fruits</option>
+          <option>Other</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="quantity">Quantity (approx. meals)</label>
+        <input type="number" id="quantity" placeholder="e.g. 45" required />
+      </div>
+
+      <div class="form-group">
+        <label for="pickupWindow">Pickup Window</label>
+        <input type="datetime-local" id="pickupWindow" required />
+      </div>
+
+      <div class="form-group">
+        <label for="location">Location</label>
+        <input type="text" id="location" placeholder="Enter location" required />
+      </div>
+
+      <div class="form-group">
+        <label for="contact">Contact Number</label>
+        <input type="text" id="contact" placeholder="Enter contact number" required />
+      </div>
+
+      <div class="form-group">
+        <label for="notes">Special Notes / Allergens</label>
+        <textarea id="notes" rows="2" placeholder="No peanuts..."></textarea>
+      </div>
+
+      <button type="submit" class="btn" id="submitBtn">Post Donation →</button>
+    </form>
+
+    <div id="messageBox" class="message"></div>
+  </div>
+
+  <div class="card">
+    <h3>Active Donations</h3>
+    <div id="donationList"></div>
+  </div>
+
+  <div class="card">
+    <h3>QR for Pickup</h3>
+    <div class="qr-placeholder">QR Code Placeholder<br>(Scan by Driver)</div>
+  </div>
+</div>
+
+<div id="ngo" class="screen">
+  <div class="card">
+    <h3>Available Donations Nearby</h3>
+    <div class="card" style="margin:0.8rem 0; padding:1rem;">
+      <div style="display:flex; gap:1rem;">
+        <div style="width:80px;height:80px;background:#eee;border-radius:8px;"></div>
+        <div>
+          <strong>Paneer Butter Masala + Naan × 28</strong><br>
+          <small>2.4 km • Expires in 1h 50m</small><br>
+          <div class="iot-status safe"><i class="fas fa-thermometer-half"></i> Temp: 4.8°C – Safe</div>
+        </div>
+      </div>
+      <button class="btn" style="margin-top:1rem;">Accept Donation</button>
+    </div>
+  </div>
+</div>
+
+<div id="logistics" class="screen">
+  <div class="card">
+    <h3>Assigned Pickups</h3>
+    <div style="padding:1rem; background:#f8f9fa; border-radius:10px; margin:0.8rem 0;">
+      <strong>Pickup → City Banquet Hall</strong><br>
+      <small>To: Community Shelter • 3.8 km</small><br><br>
+      <div><i class="fas fa-map-marker-alt"></i> AI Optimized Route</div>
+      <div class="iot-status safe"><i class="fas fa-broadcast-tower"></i> Live Temp Tracking Active</div>
+      <button class="btn" style="margin-top:1rem;">Start Pickup</button>
+    </div>
+  </div>
+</div>
+
+<div class="bottom-nav">
+  <div class="nav-item active"><i class="fas fa-home"></i><div>Home</div></div>
+  <div class="nav-item"><i class="fas fa-list"></i><div>History</div></div>
+  <div class="nav-item"><i class="fas fa-chart-line"></i><div>Impact</div></div>
+  <div class="nav-item"><i class="fas fa-user"></i><div>Profile</div></div>
+</div>
+
+<script>
+  const tabs = document.querySelectorAll('.tab');
+  const screens = document.querySelectorAll('.screen');
+
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      tabs.forEach(t => t.classList.remove('active'));
+      screens.forEach(s => s.classList.remove('active'));
+      tab.classList.add('active');
+      document.getElementById(tab.dataset.role).classList.add('active');
+    });
+  });
+
+  const form = document.getElementById("donationForm");
+  const messageBox = document.getElementById("messageBox");
+  const donationList = document.getElementById("donationList");
+  const submitBtn = document.getElementById("submitBtn");
+
+  function showMessage(text, type) {
+    messageBox.textContent = text;
+    messageBox.className = "message " + type;
+  }
+
+  async function loadDonations() {
+    try {
+      const response = await fetch("http://localhost:5000/api/donations");
+      const donations = await response.json();
+
+      donationList.innerHTML = "";
+
+      if (!donations.length) {
+        donationList.innerHTML = "<small>No donations yet.</small>";
+        return;
+      }
+
+      donations.forEach(item => {
+        const div = document.createElement("div");
+        div.style.padding = "0.8rem 0";
+        div.style.borderBottom = "1px solid #eee";
+        div.innerHTML = `
+          <strong>${item.foodType} × ${item.quantity}</strong><br>
+          <small>${item.location}</small><br>
+          <small>Pickup: ${new Date(item.pickupWindow).toLocaleString()}</small><br>
+          <span class="badge badge-success">Posted</span>
+        `;
+        donationList.appendChild(div);
+      });
+    } catch (error) {
+      donationList.innerHTML = "<small>Could not load donations.</small>";
+    }
+  }
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Posting...";
+
+    const data = {
+      donorName: document.getElementById("donorName").value,
+      foodType: document.getElementById("foodType").value,
+      quantity: document.getElementById("quantity").value,
+      pickupWindow: document.getElementById("pickupWindow").value,
+      location: document.getElementById("location").value,
+      contact: document.getElementById("contact").value,
+      notes: document.getElementById("notes").value
+    };
+
+    try {
+      const response = await fetch("http://localhost:5000/api/donations", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(data)
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || "Something went wrong");
+      }
+
+      showMessage("Donation posted successfully.", "success");
+      form.reset();
+      loadDonations();
+    } catch (error) {
+      showMessage(error.message || "Error posting donation.", "error");
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.textContent = "Post Donation →";
+    }
+  });
+
+  loadDonations();
+</script>
+</body>
+</html>
