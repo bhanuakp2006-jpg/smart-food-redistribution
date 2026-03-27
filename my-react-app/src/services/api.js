@@ -1,7 +1,8 @@
 import axios from 'axios';
 
-// Use environment variable or default to localhost for development
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+// Use environment variable for production (Render backend URL).
+// Fallback to deployed backend in case env var is missing.
+const API_URL = import.meta.env.VITE_API_URL || 'https://smart-food-redistribution-5.onrender.com';
 
 const apiClient = axios.create({
   baseURL: API_URL,
