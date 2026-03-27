@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // Use environment variable for production (Render backend URL).
-// Fallback to deployed backend in case env var is missing.
+// Fallback to actual deployed backend.
 const API_URL = import.meta.env.VITE_API_URL || 'https://smart-food-redistribution-5.onrender.com';
 
 const apiClient = axios.create({
