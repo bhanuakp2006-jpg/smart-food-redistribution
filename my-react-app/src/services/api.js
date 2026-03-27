@@ -50,6 +50,26 @@ export const getDonations = async () => {
   }
 };
 
+export const getUserDonations = async (userId) => {
+  try {
+    const response = await apiClient.get(`/api/donations/donor/${userId}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching user donations:', error);
+    throw error;
+  }
+};
+
+export const getNearbyDonations = async (userId) => {
+  try {
+    const response = await apiClient.get(`/api/donations/nearby/${userId}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching nearby donations:', error);
+    throw error;
+  }
+};
+
 export const createDonation = async (donationData) => {
   try {
     console.log('Sending donation data:', donationData);
@@ -60,6 +80,17 @@ export const createDonation = async (donationData) => {
     console.error('Error creating donation:', error);
     console.error('Response status:', error.response?.status);
     console.error('Response data:', error.response?.data);
+    throw error;
+  }
+};
+
+export const claimDonation = async (donationId, userId) => {
+  try {
+    const response = await apiClient.put(`/api/donations/${donationId}/claim`, { userId });
+    console.log('Donation claimed successfully:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('Error claiming donation:', error);
     throw error;
   }
 };

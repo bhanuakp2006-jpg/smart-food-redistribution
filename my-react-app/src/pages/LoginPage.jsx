@@ -1,14 +1,17 @@
 import React, { useState } from 'react';
-import { Leaf, Mail, Lock, ArrowRight, User } from 'lucide-react';
+import { Leaf, Mail, Lock, ArrowRight, User, Eye, EyeOff, Phone } from 'lucide-react';
 import { loginUser, registerUser, testBackendConnection } from '../services/api';
+import MapPicker from '../components/MapPicker';
 
 export default function LoginPage({ onLogin }) {
   const [userType, setUserType] = useState(null);
   const [isSignUp, setIsSignUp] = useState(false);
-  const [formData, setFormData] = useState({ name: '', email: '', password: '', confirmPassword: '' });
+  const [formData, setFormData] = useState({ name: '', email: '', password: '', confirmPassword: '', contact: '' });
+  const [location, setLocation] = useState(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -44,8 +47,14 @@ export default function LoginPage({ onLogin }) {
     console.log('FormData:', formData);
 
     try {
-      if (!formData.name || !formData.email || !formData.password || !formData.confirmPassword) {
+      if (!formData.name || !formData.email || !formData.password || !formData.confirmPassword || !formData.contact) {
         setError('Please fill in all fields');
+        setLoading(false);
+        return;
+      }
+
+      if (!location) {
+        setError('Please select a location');
         setLoading(false);
         return;
       }
@@ -73,7 +82,9 @@ export default function LoginPage({ onLogin }) {
         name: formData.name,
         email: formData.email,
         password: formData.password,
-        userType
+        userType,
+        location,
+        contact: formData.contact
       });
 
       console.log('Registration successful:', response);
@@ -146,7 +157,7 @@ export default function LoginPage({ onLogin }) {
       <div className="w-full max-w-md">
         {/* Back Button */}
         <button
-          onClick={() => { setUserType(null); setFormData({ email: '', password: '' }); setError(''); }}
+          onClick={() => { setUserType(null); setFormData({ name: '', email: '', password: '', confirmPassword: '', contact: '' }); setError(''); }}
           className="mb-8 text-gray-600 hover:text-gray-900 flex items-center space-x-1"
         >
           <span>← Back</span>
@@ -201,6 +212,13 @@ export default function LoginPage({ onLogin }) {
               </div>
             )}
 
+            {/* Location Map - Only for Sign Up */}
+            {isSignUp && (
+              <div>
+                <MapPicker onLocationSelect={setLocation} />
+              </div>
+            )}
+
             {/* Email */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
@@ -216,18 +234,42 @@ export default function LoginPage({ onLogin }) {
               </div>
             </div>
 
+            {/* Contact - Only for Sign Up */}
+            {isSignUp && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Contact Number</label>
+                <div className="relative">
+                  <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                  <input
+                    type="tel"
+                    value={formData.contact}
+                    onChange={(e) => setFormData({ ...formData, contact: e.target.value })}
+                    placeholder="+1 (555) 123-4567"
+                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none transition"
+                  />
+                </div>
+              </div>
+            )}
+
             {/* Password */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Password</label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                 <input
-                  type="password"
+                  type={showPassword ? 'text' : 'password'}
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                   placeholder="••••••••"
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none transition"
+                  className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none transition"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
               </div>
             </div>
 
@@ -238,12 +280,19 @@ export default function LoginPage({ onLogin }) {
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                   <input
-                    type="password"
+                    type={showPassword ? 'text' : 'password'}
                     value={formData.confirmPassword}
                     onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
                     placeholder="••••••••"
-                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none transition"
+                    className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none transition"
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  </button>
                 </div>
               </div>
             )}
@@ -289,7 +338,7 @@ export default function LoginPage({ onLogin }) {
             type="button"
             onClick={() => {
               setIsSignUp(!isSignUp);
-              setFormData({ name: '', email: '', password: '', confirmPassword: '' });
+              setFormData({ name: '', email: '', password: '', confirmPassword: '', contact: '' });
               setError('');
               setSuccess('');
             }}

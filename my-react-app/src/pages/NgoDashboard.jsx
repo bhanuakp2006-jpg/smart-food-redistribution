@@ -1,22 +1,24 @@
 import React, { useState, useEffect } from 'react';
-import { LogOut, CheckCircle, Clock, MapPin, Leaf, Users, Activity } from 'lucide-react';
-import { getDonations } from '../services/api';
+import { LogOut, CheckCircle, MapPin, Leaf, Users, Activity, Phone } from 'lucide-react';
+import { getNearbyDonations, claimDonation } from '../services/api';
 
 export default function NgoDashboard({ user, onLogout }) {
-  const [donations, setDonations] = useState([]);
+  const [nearbyDonations, setNearbyDonations] = useState([]);
+  const [otherDonations, setOtherDonations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [claimed, setClaimed] = useState([]);
 
   useEffect(() => {
     fetchDonations();
-  }, []);
+  }, [user?.id]);
 
   const fetchDonations = async () => {
     try {
       setLoading(true);
-      const data = await getDonations();
-      setDonations(data);
+      const data = await getNearbyDonations(user.id);
+      setNearbyDonations(data.nearby || []);
+      setOtherDonations(data.other || []);
       setError(null);
     } catch (err) {
       setError('Failed to load donations');
@@ -26,162 +28,216 @@ export default function NgoDashboard({ user, onLogout }) {
     }
   };
 
-  const handleClaim = (donationId, donation) => {
-    // Add to claimed list
-    setClaimed([...claimed, donation]);
-    // Remove from donations
-    setDonations(donations.filter(d => d._id !== donationId));
+  const handleClaim = async (donationId) => {
+    try {
+      await claimDonation(donationId, user.id);
+      
+      // Remove from nearby or other lists
+      setNearbyDonations(nearbyDonations.filter(d => d._id !== donationId));
+      setOtherDonations(otherDonations.filter(d => d._id !== donationId));
+      
+      // Add to claimed
+      const claimed_donation = nearbyDonations.find(d => d._id === donationId) || 
+                                otherDonations.find(d => d._id === donationId);
+      if (claimed_donation) {
+        setClaimed([...claimed, claimed_donation]);
+      }
+    } catch (err) {
+      setError('Failed to claim donation');
+      console.error(err);
+    }
   };
 
-  const availableCount = donations.length;
+  const totalNearby = nearbyDonations.length;
+  const totalOther = otherDonations.length;
   const claimedCount = claimed.length;
 
+  const DonationCard = ({ donation, onClaim, buttonLabel = "Claim" }) => (
+    <div className="bg-white rounded-lg border border-gray-200 overflow-hidden hover:shadow-lg transition">
+      {/* Image */}
+      {donation.image && (
+        <img src={donation.image} alt={donation.foodType} className="w-full h-40 object-cover" />
+      )}
+      
+      {/* Content */}
+      <div className="p-4">
+        <div className="flex items-start justify-between mb-3">
+          <h3 className="text-lg font-bold text-gray-900">{donation.foodType}</h3>
+          <span className="text-xs font-semibold px-2 py-1 bg-green-100 text-green-800 rounded-full">
+            Available
+          </span>
+        </div>
+
+        <div className="space-y-2 text-sm text-gray-600 mb-4">
+          <p>
+            <span className="font-semibold">Quantity:</span> {donation.quantityValue} {donation.quantityUnit}
+          </p>
+          <p>
+            <span className="font-semibold">Pickup:</span> {new Date(donation.pickupDate).toLocaleDateString()} at {donation.pickupTime}
+          </p>
+          <p className="flex items-center gap-1">
+            <MapPin className="w-4 h-4" />
+            <span>{donation.location.address}</span>
+          </p>
+          {donation.donorId?.contact && (
+            <p className="flex items-center gap-1">
+              <Phone className="w-4 h-4" />
+              <span>{donation.donorId.contact}</span>
+            </p>
+          )}
+          {donation.notes && (
+            <p>
+              <span className="font-semibold">Notes:</span> {donation.notes}
+            </p>
+          )}
+        </div>
+
+        <button
+          onClick={() => onClaim(donation._id)}
+          className="w-full bg-blue-600 text-white py-2 rounded-lg font-semibold hover:bg-blue-700 transition"
+        >
+          {buttonLabel}
+        </button>
+      </div>
+    </div>
+  );
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-cyan-50">
-      {/* Navbar */}
-      <nav className="bg-white shadow-sm sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-2">
-              <Leaf className="w-6 h-6 text-blue-600" />
-              <span className="text-xl font-bold text-gray-900">FoodShare Hub</span>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-cyan-50 p-6">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center gap-4">
+            <div className="bg-blue-600 p-3 rounded-xl">
+              <Leaf className="h-6 w-6 text-white" />
             </div>
-            <div className="flex items-center space-x-4">
-              <span className="text-gray-700">Welcome, <strong>{user.name}</strong></span>
-              <button
-                onClick={onLogout}
-                className="flex items-center space-x-1 px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition"
-              >
-                <LogOut className="w-5 h-5" />
-                <span>Logout</span>
-              </button>
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">Welcome, {user.name}</h1>
+              <p className="text-gray-600">Find and claim surplus food for your beneficiaries</p>
             </div>
           </div>
-        </div>
-      </nav>
-
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">NGO Dashboard</h1>
-          <p className="text-gray-600">Find and claim surplus food for your beneficiaries</p>
+          <button
+            onClick={onLogout}
+            className="flex items-center gap-2 bg-red-600 text-white px-6 py-3 rounded-lg hover:bg-red-700 transition"
+          >
+            <LogOut className="w-5 h-5" />
+            Logout
+          </button>
         </div>
 
         {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+          <div className="bg-white rounded-lg shadow p-6 border-l-4 border-green-500">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-gray-600 text-sm">Claimed So Far</p>
-                <p className="text-3xl font-bold text-blue-600">{claimedCount}</p>
+                <p className="text-gray-600 text-sm">Nearby Donations</p>
+                <p className="text-3xl font-bold text-gray-900">{totalNearby}</p>
               </div>
-              <CheckCircle className="w-12 h-12 text-blue-200" />
+              <MapPin className="w-10 h-10 text-green-600 opacity-30" />
             </div>
           </div>
-          <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+          <div className="bg-white rounded-lg shadow p-6 border-l-4 border-blue-500">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-gray-600 text-sm">Total Quantity</p>
-                <p className="text-3xl font-bold text-cyan-600">
-                  {donations.reduce((sum, d) => sum + (parseInt(d.quantity) || 0), 0) + claimed.reduce((sum, d) => sum + (parseInt(d.quantity) || 0), 0)}
-                </p>
+                <p className="text-gray-600 text-sm">Other Locations</p>
+                <p className="text-3xl font-bold text-gray-900">{totalOther}</p>
               </div>
-              <Users className="w-12 h-12 text-cyan-200" />
+              <Users className="w-10 h-10 text-blue-600 opacity-30" />
             </div>
           </div>
-          <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+          <div className="bg-white rounded-lg shadow p-6 border-l-4 border-purple-500">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-gray-600 text-sm">Available Now</p>
-                <p className="text-3xl font-bold text-green-600">{availableCount}</p>
+                <p className="text-gray-600 text-sm">Claimed</p>
+                <p className="text-3xl font-bold text-gray-900">{claimedCount}</p>
               </div>
-              <Activity className="w-12 h-12 text-green-200" />
+              <CheckCircle className="w-10 h-10 text-purple-600 opacity-30" />
             </div>
           </div>
         </div>
 
-        {/* Available Food */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-8">
-          <div className="px-6 py-4 border-b border-gray-100">
-            <h2 className="text-lg font-bold text-gray-900">Available Food Listings</h2>
+        {/* Error Message */}
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
+            {error}
           </div>
-          
-          {error && (
-            <div className="px-6 py-4 bg-red-50 border-b border-red-200 text-red-700">
-              {error}
+        )}
+
+        {/* Donations Grid */}
+        {loading ? (
+          <div className="text-center text-gray-600 p-8">Loading donations...</div>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* Nearby Donations */}
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+                <MapPin className="w-6 h-6 text-green-600" />
+                Nearby Donations (Within 5 km)
+              </h2>
+              {nearbyDonations.length === 0 ? (
+                <p className="text-gray-600 bg-white rounded-lg p-6">No nearby donations available</p>
+              ) : (
+                <div className="space-y-6">
+                  {nearbyDonations.map((donation) => (
+                    <DonationCard
+                      key={donation._id}
+                      donation={donation}
+                      onClaim={handleClaim}
+                      buttonLabel="Claim This Donation"
+                    />
+                  ))}
+                </div>
+              )}
             </div>
-          )}
-          
-          {loading ? (
-            <div className="px-6 py-8 text-center text-gray-500">
-              Loading available food...
+
+            {/* Other Donations */}
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+                <Activity className="w-6 h-6 text-blue-600" />
+                Other Locations
+              </h2>
+              {otherDonations.length === 0 ? (
+                <p className="text-gray-600 bg-white rounded-lg p-6">No other donations available</p>
+              ) : (
+                <div className="space-y-6">
+                  {otherDonations.map((donation) => (
+                    <DonationCard
+                      key={donation._id}
+                      donation={donation}
+                      onClaim={handleClaim}
+                      buttonLabel="Claim This Donation"
+                    />
+                  ))}
+                </div>
+              )}
             </div>
-          ) : donations.length === 0 ? (
-            <div className="px-6 py-8 text-center text-gray-500">
-              No food available at the moment. Check back soon!
-            </div>
-          ) : (
-            <div className="divide-y divide-gray-100">
-              {donations.map((item) => (
-                <div key={item._id} className="p-6 hover:bg-gray-50 transition">
-                  <div className="flex justify-between items-start mb-4">
-                    <div>
-                      <h3 className="text-lg font-bold text-gray-900">{item.foodType}</h3>
-                      <p className="text-gray-600 text-sm">By: {item.donorName}</p>
-                    </div>
-                    <span className="px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-700">
-                      Available
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4 text-sm">
-                    <div className="flex items-center space-x-2">
-                      <Clock className="w-4 h-4 text-gray-400" />
-                      <span className="text-gray-600">{item.pickupWindow}</span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <MapPin className="w-4 h-4 text-gray-400" />
-                      <span className="text-gray-600">{item.location}</span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <span className="text-gray-600">Qty: {item.quantity}</span>
-                    </div>
-                    <button
-                      onClick={() => handleClaim(item._id, item)}
-                      className="col-span-2 md:col-span-1 bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition"
-                    >
-                      Claim Food
-                    </button>
-                  </div>
-                  {item.notes && (
-                    <p className="text-sm text-gray-600 italic">Notes: {item.notes}</p>
+          </div>
+        )}
+
+        {/* Claimed Donations */}
+        {claimed.length > 0 && (
+          <div className="mt-12">
+            <h2 className="text-2xl font-bold text-gray-900 mb-6">Claimed Donations</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {claimed.map((donation) => (
+                <div key={donation._id} className="bg-white rounded-lg border border-green-200 overflow-hidden opacity-75">
+                  {donation.image && (
+                    <img src={donation.image} alt={donation.foodType} className="w-full h-40 object-cover" />
                   )}
+                  <div className="p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <CheckCircle className="w-5 h-5 text-green-600" />
+                      <span className="text-sm font-semibold text-green-800">Claimed</span>
+                    </div>
+                    <h3 className="font-bold text-gray-900">{donation.foodType}</h3>
+                    <p className="text-sm text-gray-600 mt-2">{donation.quantityValue} {donation.quantityUnit}</p>
+                  </div>
                 </div>
               ))}
             </div>
-          )}
-        </div>
-
-        {/* Claimed History */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-          <h2 className="text-lg font-bold text-gray-900 mb-4">Recent Claims ({claimed.length})</h2>
-          <div className="space-y-3">
-            {claimed.length === 0 ? (
-              <p className="text-gray-500 text-center py-4">No claims yet</p>
-            ) : (
-              claimed.map((item) => (
-                <div key={item._id} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                  <div>
-                    <p className="font-medium text-gray-900">{item.foodType} from {item.donorName}</p>
-                    <p className="text-sm text-gray-600">{item.quantity} - Pickup: {item.pickupWindow}</p>
-                  </div>
-                  <CheckCircle className="w-5 h-5 text-green-600" />
-                </div>
-              ))
-            )}
           </div>
-        </div>
-      </main>
+        )}
+      </div>
     </div>
   );
 }

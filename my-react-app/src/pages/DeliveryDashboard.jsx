@@ -1,156 +1,246 @@
-import React, { useState } from 'react';
-import { LogOut, Truck, MapPin, Clock, AlertCircle, Navigation, Leaf } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { LogOut, Truck, MapPin, CheckCircle, Activity, Phone } from 'lucide-react';
+import { getNearbyDonations, claimDonation } from '../services/api';
 
 export default function DeliveryDashboard({ user, onLogout }) {
-  const [deliveries, setDeliveries] = useState([
-    { id: 1, from: 'Grand Hotel', to: 'Hope NGO', food: 'Biryani (50 portions)', distance: '2.5 km', status: 'in-progress', eta: '15 mins' },
-    { id: 2, from: 'Sunrise Bakery', to: 'Community Kitchen', food: 'Fresh Bread (25 loaves)', distance: '3.2 km', status: 'pending', eta: '—' },
-    { id: 3, from: 'Local Market', to: 'Food Bank', food: 'Fresh Vegetables (15 kg)', distance: '1.8 km', status: 'completed', eta: '—' }
-  ]);
+  const [nearbyDonations, setNearbyDonations] = useState([]);
+  const [otherDonations, setOtherDonations] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [claimed, setClaimed] = useState([]);
 
-  const handleStatusUpdate = (id, newStatus) => {
-    setDeliveries(deliveries.map(d => d.id === id ? { ...d, status: newStatus } : d));
+  useEffect(() => {
+    fetchDonations();
+  }, [user?.id]);
+
+  const fetchDonations = async () => {
+    try {
+      setLoading(true);
+      const data = await getNearbyDonations(user.id);
+      setNearbyDonations(data.nearby || []);
+      setOtherDonations(data.other || []);
+      setError(null);
+    } catch (err) {
+      setError('Failed to load donations');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
   };
 
+  const handleClaim = async (donationId) => {
+    try {
+      await claimDonation(donationId, user.id);
+
+      // Remove from nearby or other lists
+      setNearbyDonations(nearbyDonations.filter(d => d._id !== donationId));
+      setOtherDonations(otherDonations.filter(d => d._id !== donationId));
+
+      // Add to claimed
+      const claimed_donation = nearbyDonations.find(d => d._id === donationId) ||
+                                otherDonations.find(d => d._id === donationId);
+      if (claimed_donation) {
+        setClaimed([...claimed, claimed_donation]);
+      }
+    } catch (err) {
+      setError('Failed to claim donation');
+      console.error(err);
+    }
+  };
+
+  const totalNearby = nearbyDonations.length;
+  const totalOther = otherDonations.length;
+  const claimedCount = claimed.length;
+
+  const DonationCard = ({ donation, onClaim, buttonLabel = "Accept Delivery" }) => (
+    <div className="bg-white rounded-lg border border-gray-200 overflow-hidden hover:shadow-lg transition">
+      {/* Image */}
+      {donation.image && (
+        <img src={donation.image} alt={donation.foodType} className="w-full h-40 object-cover" />
+      )}
+
+      {/* Content */}
+      <div className="p-4">
+        <div className="flex items-start justify-between mb-3">
+          <h3 className="text-lg font-bold text-gray-900">{donation.foodType}</h3>
+          <span className="text-xs font-semibold px-2 py-1 bg-green-100 text-green-800 rounded-full">
+            Available
+          </span>
+        </div>
+
+        <div className="space-y-2 text-sm text-gray-600 mb-4">
+          <p>
+            <span className="font-semibold">Quantity:</span> {donation.quantityValue} {donation.quantityUnit}
+          </p>
+          <p>
+            <span className="font-semibold">Pickup:</span> {new Date(donation.pickupDate).toLocaleDateString()} at {donation.pickupTime}
+          </p>
+          <p className="flex items-center gap-1">
+            <MapPin className="w-4 h-4" />
+            <span>{donation.location.address}</span>
+          </p>
+          <p>
+            <span className="font-semibold">Donor:</span> {donation.donorName}
+          </p>
+          {donation.donorId?.contact && (
+            <p className="flex items-center gap-1">
+              <Phone className="w-4 h-4" />
+              <span>{donation.donorId.contact}</span>
+            </p>
+          )}
+          {donation.notes && (
+            <p>
+              <span className="font-semibold">Notes:</span> {donation.notes}
+            </p>
+          )}
+        </div>
+
+        <button
+          onClick={() => onClaim(donation._id)}
+          className="w-full bg-purple-600 text-white py-2 rounded-lg font-semibold hover:bg-purple-700 transition"
+        >
+          {buttonLabel}
+        </button>
+      </div>
+    </div>
+  );
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50">
-      {/* Navbar */}
-      <nav className="bg-white shadow-sm sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-2">
-              <Leaf className="w-6 h-6 text-purple-600" />
-              <span className="text-xl font-bold text-gray-900">FoodShare Hub</span>
-            </div>
-            <div className="flex items-center space-x-4">
-              <span className="text-gray-700">Welcome, <strong>{user.name}</strong></span>
-              <button
-                onClick={onLogout}
-                className="flex items-center space-x-1 px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition"
-              >
-                <LogOut className="w-5 h-5" />
-                <span>Logout</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      </nav>
-
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50 p-6">
+      <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Delivery Partner Dashboard</h1>
-          <p className="text-gray-600">Manage your food delivery assignments</p>
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center gap-4">
+            <div className="bg-purple-600 p-3 rounded-xl">
+              <Truck className="h-6 w-6 text-white" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">Welcome, {user.name}</h1>
+              <p className="text-gray-600">Find and deliver surplus food to those in need</p>
+            </div>
+          </div>
+          <button
+            onClick={onLogout}
+            className="flex items-center gap-2 bg-red-600 text-white px-6 py-3 rounded-lg hover:bg-red-700 transition"
+          >
+            <LogOut className="w-5 h-5" />
+            Logout
+          </button>
         </div>
 
-        {/* Active Deliveries Summary */}
+        {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+          <div className="bg-white rounded-lg shadow p-6 border-l-4 border-green-500">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-gray-600 text-sm">Active Deliveries</p>
-                <p className="text-3xl font-bold text-purple-600">1</p>
+                <p className="text-gray-600 text-sm">Nearby Deliveries</p>
+                <p className="text-3xl font-bold text-gray-900">{totalNearby}</p>
               </div>
-              <Truck className="w-12 h-12 text-purple-200" />
+              <MapPin className="w-10 h-10 text-green-600 opacity-30" />
             </div>
           </div>
-          <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+          <div className="bg-white rounded-lg shadow p-6 border-l-4 border-blue-500">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-gray-600 text-sm">Total This Week</p>
-                <p className="text-3xl font-bold text-blue-600">12</p>
+                <p className="text-gray-600 text-sm">Other Locations</p>
+                <p className="text-3xl font-bold text-gray-900">{totalOther}</p>
               </div>
-              <Navigation className="w-12 h-12 text-blue-200" />
+              <Activity className="w-10 h-10 text-blue-600 opacity-30" />
             </div>
           </div>
-          <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+          <div className="bg-white rounded-lg shadow p-6 border-l-4 border-purple-500">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-gray-600 text-sm">Total Distance</p>
-                <p className="text-3xl font-bold text-pink-600">48 km</p>
+                <p className="text-gray-600 text-sm">Completed</p>
+                <p className="text-3xl font-bold text-gray-900">{claimedCount}</p>
               </div>
-              <MapPin className="w-12 h-12 text-pink-200" />
+              <CheckCircle className="w-10 h-10 text-purple-600 opacity-30" />
             </div>
           </div>
         </div>
 
-        {/* Delivery List */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-100">
-            <h2 className="text-lg font-bold text-gray-900">Your Deliveries</h2>
+        {/* Error Message */}
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
+            {error}
           </div>
-          <div className="divide-y divide-gray-100">
-            {deliveries.map((delivery) => (
-              <div key={delivery.id} className="p-6 hover:bg-gray-50 transition">
-                <div className="flex flex-col md:flex-row justify-between md:items-center gap-6 mb-4">
-                  <div className="flex-1">
-                    <h3 className="text-lg font-bold text-gray-900 mb-2">{delivery.food}</h3>
-                    <div className="space-y-2 text-sm text-gray-600">
-                      <p><strong>From:</strong> {delivery.from}</p>
-                      <p><strong>To:</strong> {delivery.to}</p>
+        )}
+
+        {/* Donations Grid */}
+        {loading ? (
+          <div className="text-center text-gray-600 p-8">Loading deliveries...</div>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* Nearby Deliveries */}
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+                <MapPin className="w-6 h-6 text-green-600" />
+                Nearby Deliveries (Within 5 km)
+              </h2>
+              {nearbyDonations.length === 0 ? (
+                <p className="text-gray-600 bg-white rounded-lg p-6">No nearby deliveries available</p>
+              ) : (
+                <div className="space-y-6">
+                  {nearbyDonations.map((donation) => (
+                    <DonationCard
+                      key={donation._id}
+                      donation={donation}
+                      onClaim={handleClaim}
+                      buttonLabel="Accept Delivery"
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Other Deliveries */}
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+                <Activity className="w-6 h-6 text-blue-600" />
+                Other Locations
+              </h2>
+              {otherDonations.length === 0 ? (
+                <p className="text-gray-600 bg-white rounded-lg p-6">No other deliveries available</p>
+              ) : (
+                <div className="space-y-6">
+                  {otherDonations.map((donation) => (
+                    <DonationCard
+                      key={donation._id}
+                      donation={donation}
+                      onClaim={handleClaim}
+                      buttonLabel="Accept Delivery"
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Completed Deliveries */}
+        {claimed.length > 0 && (
+          <div className="mt-12">
+            <h2 className="text-2xl font-bold text-gray-900 mb-6">Completed Deliveries</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {claimed.map((donation) => (
+                <div key={donation._id} className="bg-white rounded-lg border border-green-200 overflow-hidden opacity-75">
+                  {donation.image && (
+                    <img src={donation.image} alt={donation.foodType} className="w-full h-40 object-cover" />
+                  )}
+                  <div className="p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <CheckCircle className="w-5 h-5 text-green-600" />
+                      <span className="text-sm font-semibold text-green-800">Delivered</span>
                     </div>
-                  </div>
-                  <div className="flex items-center space-x-4 text-sm">
-                    <div className="flex items-center space-x-2">
-                      <MapPin className="w-4 h-4 text-gray-400" />
-                      <span>{delivery.distance}</span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Clock className="w-4 h-4 text-gray-400" />
-                      <span>{delivery.eta}</span>
-                    </div>
+                    <h3 className="font-bold text-gray-900">{donation.foodType}</h3>
+                    <p className="text-sm text-gray-600 mt-2">{donation.quantityValue} {donation.quantityUnit}</p>
                   </div>
                 </div>
-
-                {/* Status & Actions */}
-                <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
-                  <div className="flex space-x-2">
-                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                      delivery.status === 'completed' ? 'bg-green-100 text-green-700' :
-                      delivery.status === 'in-progress' ? 'bg-blue-100 text-blue-700' :
-                      'bg-yellow-100 text-yellow-700'
-                    }`}>
-                      {delivery.status === 'completed' ? 'Completed' :
-                       delivery.status === 'in-progress' ? 'In Progress' :
-                       'Pending'}
-                    </span>
-                  </div>
-
-                  {delivery.status === 'pending' && (
-                    <button
-                      onClick={() => handleStatusUpdate(delivery.id, 'in-progress')}
-                      className="bg-purple-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-purple-700 transition"
-                    >
-                      Start Delivery
-                    </button>
-                  )}
-                  {delivery.status === 'in-progress' && (
-                    <button
-                      onClick={() => handleStatusUpdate(delivery.id, 'completed')}
-                      className="bg-green-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-green-700 transition"
-                    >
-                      Complete Delivery
-                    </button>
-                  )}
-                  {delivery.status === 'completed' && (
-                    <span className="text-green-600 font-medium">✓ Delivered</span>
-                  )}
-                </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
-
-        {/* Tips Box */}
-        <div className="mt-8 bg-blue-50 border border-blue-200 rounded-2xl p-6 flex items-start space-x-3">
-          <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-          <div>
-            <h3 className="font-bold text-blue-900">Delivery Tips</h3>
-            <p className="text-sm text-blue-700 mt-1">Handle food items with care, maintain proper temperature controls, and ensure timely delivery to prevent food spoilage.</p>
-          </div>
-        </div>
-      </main>
+        )}
+      </div>
     </div>
   );
 }
